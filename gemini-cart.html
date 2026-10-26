@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Gemini Cart</title>
+  <script type="module">
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+    const model = new GoogleGenerativeAI("GEMINI_KEY").getGenerativeModel({
+      model: "gemini-1.5-base"
+    });
+
+    let cart = [];
+
+    async function askGemini() {
+      const input = userInput.value.trim();
+      if (!input) return;
+
+      output.innerText = "Thinking...";
+
+      const prompt = `
+You are a shopping cart assistant. Based on the user's input and current cart, update the cart and return a JSON object with:
+
+- "cart": the updated cart array (each item must have "name" and "qty")
+- "message": a short description of the action taken, or an error message
+- "products" : apple, milk, oranges, banana, bread, eggs, cheese, yogurt, chicken, beef, fish, rice, pasta, cereal, juice, water, soda, coffee, tea, chocolate, cookies, cake, ice cream, butter, honey, jam, peanut butter, nuts, salad, tomato, lettuce, cucumber, carrot, onion, garlic, potato, sweet potato, broccoli, spinach,
+
+Only return raw JSON (no code blocks, no explanations).
+
+Current cart: ${JSON.stringify(cart)}
+User input: "${input}"
+
+Return JSON like:
+{
+  "cart": [ { "name": "Laptop", "qty": 2 } ],
+  "message": "Added 2 laptops to the cart."
+}
+`;
+
+      try {
+        let res = (await model.generateContent(prompt)).response.text().trim();
+        res = res.replace(/```json|```/g, ""); // clean code blocks if any
+
+        const parsed = JSON.parse(res);
+
+        cart = parsed.cart || [];
+        const message = parsed.message || "(No message)";
+
+        const cartList = cart.length
+          ? cart.map(i => `- ${i.name} (x${i.qty})`).join("\n")
+          : "(empty)";
+
+        output.innerText = `✅ ${message}\n\n🛒 Cart:\n${cartList}`;
+      } catch (e) {
+        output.innerText = "⚠️ " + e.message;
+      }
+    }
+
+    window.askGemini = askGemini;
+
+    // Allow pressing Enter to submit
+    addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        askGemini();
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <h1>Gemini Cart</h1>
+
+  <label for="userInput">Type a command:</label><br>
+  <textarea id="userInput" rows="3" placeholder="E.g. Add 2 apples, remove 1 laptop..."></textarea><br>
+  <button onclick="askGemini()">Ask</button>
+
+  <div id="output"></div>
+</body>
+
+</html>
